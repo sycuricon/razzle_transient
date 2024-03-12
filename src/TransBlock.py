@@ -100,7 +100,7 @@ class DelayBlock(TransBlock):
         self.FLOAT_list = float_range
         dep_list = []
         for i in range(random.randint(6,8)):
-            if random.random() < 0.2:
+            if random.random() < 0.8:
                 dep_list.append(random.choice(self.GPR_list))
             else:
                 dep_list.append(random.choice(self.FLOAT_list))
@@ -146,24 +146,16 @@ class DelayBlock(TransBlock):
                     instr.set_extension_constraint(self.extension)
                     instr.set_category_constraint(['ARITHMETIC'])
 
-                    def c_dest(name, rd):
-                        return use_rs1(name) and rd == dest
-                    instr.add_constraint(c_dest,['NAME', 'RD'])
+                    def c_dest(rd):
+                        return rd == dest
+                    def c_src(name, rs1, rs2):
+                        return use_rs1(name) and (rs1 == src or use_rs2(name) and rs2 == src)
+                    def c_reg_range(name, rs1, rs2):
+                        return rs1 in self.GPR_list and (not use_rs2(name) or rs2 in self.GPR_list)
+                    instr.add_constraint(c_dest,['RD'])
+                    instr.add_constraint(c_src,['NAME','RS1','RS2'])
+                    instr.add_constraint(c_reg_range, ['NAME','RS1','RS2'])
                     instr.solve()
-
-                    if instr.has('RS1') and instr['RS1'] != src:
-                        if instr.has('RS2'):
-                            if random.random() < 0.5:
-                                instr['RS1'] = src
-                            else:
-                                instr['RS2'] = src
-                        else:
-                            instr['RS1'] = src
-
-                    if instr.has('RS1') and instr['RS1'] not in self.GPR_list:
-                        instr['RS1'] = random.choice(self.GPR_list)
-                    if instr.has('RS2') and instr['RS2'] not in self.GPR_list:
-                        instr['RS2'] = random.choice(self.GPR_list)
 
                     if instr.has('RD'):
                         self.inst_list.append(instr)
@@ -175,7 +167,6 @@ class DelayBlock(TransBlock):
         GPR_init_list = set()
         GPR_inited_list = set()
         for dest_reg,inst in zip(dep_list, self.inst_list):
-            print(inst)
 
             if inst.has('FRS1'):
                 if inst['FRS1'] not in float_inited_list:
